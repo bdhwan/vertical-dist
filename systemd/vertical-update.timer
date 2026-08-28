@@ -1,0 +1,13 @@
+[Unit]
+Description=Vertical OTA — 부팅 후 1회 + 1시간마다
+
+[Timer]
+# 부팅 직후는 카메라 서버가 먼저 떠야 하므로 2분 여유를 둔다.
+OnBootSec=2min
+OnUnitActiveSec=1h
+# 꺼져 있던 동안 놓친 실행을 켜자마자 몰아서 하지 않는다(현장 전원 인가 시 불필요한 시도 방지).
+Persistent=false
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
