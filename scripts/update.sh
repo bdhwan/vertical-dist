@@ -32,10 +32,19 @@ mkdir -p "$RELEASES" "$APK_DIR"
 
 # ── 1. 최신 릴리스 조회 (= 인터넷 체크) ──────────────────────────
 # 실패하면 현장이다. 로그만 남기고 정상 종료(0)한다 — 타이머가 실패로 기록하지 않게.
-meta=$(curl -sf --max-time 8 \
+# HTTP 코드까지 받아 "인터넷 없음"과 "릴리스 없음"을 구분한다.
+# 둘 다 종료지만, 현장 진단 시 이 구분이 없으면 원인을 못 찾는다.
+resp=$(curl -s --max-time 8 -w '\n%{http_code}' \
         -H 'Accept: application/vnd.github+json' \
-        "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null) || {
-  log "릴리스 조회 실패 — 인터넷 없음(현장)으로 판단, 종료"; exit 0; }
+        "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null)
+code=$(printf '%s' "$resp" | tail -n1)
+meta=$(printf '%s' "$resp" | sed '$d')
+case "$code" in
+  200) ;;
+  404) log "릴리스 없음 (repo=$REPO) — 종료"; exit 0 ;;
+  ''|000) log "네트워크 도달 불가 — 인터넷 없음(현장)으로 판단, 종료"; exit 0 ;;
+  *)   log "릴리스 조회 실패 (HTTP $code) — 종료"; exit 0 ;;
+esac
 
 latest=$(printf '%s' "$meta" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("tag_name",""))' 2>/dev/null)
 [ -n "$latest" ] || { log "tag_name 없음 — 종료"; exit 0; }
