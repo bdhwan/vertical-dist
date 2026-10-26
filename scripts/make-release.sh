@@ -36,13 +36,14 @@ FAIL=0
 scan() {  # $1=정규식 $2=설명
   local hit
   hit=$(grep -rniE "$1" "$STAGE" 2>/dev/null | head -5) || true
-  [ -n "$hit" ] && { echo "  ✗ $2"; printf '    %s\n' "$hit" | cut -c1-120; FAIL=1; }
+  if [ -n "$hit" ]; then echo "  ✗ $2"; printf '    %s\n' "$hit" | cut -c1-120; FAIL=1; fi
+  return 0   # set -e: 아무것도 안 걸렸을 때 마지막 [ ] 의 1 로 스크립트가 끝나지 않게
 }
 scan '(WIFI_PASS|wifi[_-]?password|psk)\s*[=:]\s*["'"'"'][^"'"'"']{4,}' "WiFi 자격증명"
 scan '[a-z0-9-]+\.ts\.net'                                              "tailnet MagicDNS 주소"
 scan '\b100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.[0-9]+\.[0-9]+'   "tailscale IP"
 scan '(api[_-]?key|secret|token)\s*[=:]\s*["'"'"'][A-Za-z0-9_-]{16,}'   "API 키/토큰"
-[ "$FAIL" = "1" ] && { echo; echo "릴리스 중단 — 위 항목을 제거하거나 환경변수로 옮기세요."; exit 1; }
+if [ "$FAIL" = "1" ]; then echo; echo "릴리스 중단 — 위 항목을 제거하거나 환경변수로 옮기세요."; exit 1; fi
 echo "  ✓ 통과"
 
 # 3) 서버 tar
