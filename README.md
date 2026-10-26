@@ -35,6 +35,16 @@ GitHub Releases ──(집: 인터넷)──> 라즈베리파이 ──(현장: 
 curl -fsSL https://raw.githubusercontent.com/bdhwan/vertical-dist/main/scripts/install.sh | bash
 ```
 
+### 예전 설치에서 넘어올 때 (Pi, 1회)
+
+예전 설치는 pm2 가 `~/rtsp-api-server/dist/main.js` 를 직접 돌려서 OTA 가 실행 코드를 바꾸지 못한다.
+릴리스를 한 번 받은 뒤(`systemctl start vertical-update.service`) pm2 를 릴리스로 옮긴다.
+예전 설치 디렉터리는 데이터 디렉터리(`VERTICAL_DATA` — config.json·log.txt·media/·youtube/)로 그대로 쓴다.
+
+```bash
+/opt/vertical/repo/scripts/adopt-pm2.sh
+```
+
 ## 릴리스 구성
 
 각 릴리스(`v1.2.0`)에 다음 자산이 올라간다.
@@ -42,7 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/bdhwan/vertical-dist/main/scripts/i
 | 자산 | 내용 |
 |---|---|
 | `manifest.json` | 버전 · versionCode · SHA-256 |
-| `server-<ver>.tar.gz` | Pi 서버 소스 |
+| `server-<ver>.tar.gz` | Pi 서버 — git 에 커밋된 파일 + 맥에서 빌드한 `dist/` (Pi 는 `npm ci --omit=dev` 만 한다) |
 | `vertical-<ver>.apk` | 안드로이드 앱 |
 
 APK 는 git 에 커밋하지 않는다 — 바이너리가 버전마다 영구 누적되면 저장소가 부푼다.

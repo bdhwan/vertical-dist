@@ -15,10 +15,20 @@ STAGE="$OUT/server-$VER"
 
 echo "== 릴리스 $VER 준비 =="
 
-# 1) 서버 소스만 추출 (node_modules·dist·빌드산출물 제외)
+# 1) 서버: git 에 커밋된 파일만 + 맥에서 빌드한 dist
+#    작업 폴더의 실행 중 상태(config.json·log.txt·media/·youtube/)는 들어가지 않는다.
+#    Pi 는 devDependencies(nest CLI·typescript) 없이 npm ci --omit=dev 만 하므로 빌드는 여기서 한다.
+SERVER="$SRC/rtsp-api-server"
+if [ -n "$(git -C "$SRC" status --porcelain -- rtsp-api-server)" ]; then
+  echo "rtsp-api-server 에 커밋 안 된 변경이 있다 — 커밋한 뒤 릴리스한다(릴리스 = 커밋 하나)"; exit 1
+fi
+COMMIT=$(git -C "$SRC" rev-parse --short HEAD)
+echo "-- 빌드 (커밋 $COMMIT)"
+( cd "$SERVER" && npm run build >/dev/null ) || { echo "빌드 실패"; exit 1; }
 mkdir -p "$STAGE"
-rsync -a --exclude node_modules --exclude dist --exclude '.git' --exclude 'test' \
-      "$SRC/rtsp-api-server/" "$STAGE/"
+# (맥 openrsync 는 --files-from 이 없어 tar 로 옮긴다)
+( cd "$SERVER" && git ls-files -z . | grep -zv '^test/' | tar --null -T - -cf - ) | tar -xf - -C "$STAGE"
+rsync -a --exclude '*.tsbuildinfo' "$SERVER/dist/" "$STAGE/dist/"
 
 # 2) ── 비밀정보 검사 (사람 주의력에 의존하지 않는다) ──────────────
 echo "-- 비밀정보 검사"
@@ -39,7 +49,7 @@ echo "  ✓ 통과"
 tar -czf "$OUT/server-$VER.tar.gz" -C "$OUT" "server-$VER"
 
 # 4) manifest 생성
-sha() { sha256sum "$1" | cut -d' ' -f1; }
+sha() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
 APK_JSON='null'
 if [ -n "$APK_SRC" ] && [ -f "$APK_SRC" ]; then
   cp "$APK_SRC" "$OUT/vertical-$VER.apk"
@@ -53,6 +63,7 @@ fi
 cat > "$OUT/manifest.json" <<JSON
 {
   "version": "$VER",
+  "commit": "$COMMIT",
   "server": { "file": "server-$VER.tar.gz", "sha256": "$(sha "$OUT/server-$VER.tar.gz")" },
   "app": $APK_JSON
 }

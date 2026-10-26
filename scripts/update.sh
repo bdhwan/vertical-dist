@@ -112,9 +112,17 @@ if [ -n "$srv_file" ]; then
   tar -xzf "$tmp/$srv_file" -C "$dest" --strip-components=1 2>/dev/null \
     || tar -xzf "$tmp/$srv_file" -C "$dest" || { log "압축 해제 실패"; rm -rf "$dest"; exit 0; }
 
-  log "빌드 중…"
-  ( cd "$dest" && npm ci --omit=dev >/dev/null 2>&1 && npm run build >/dev/null 2>&1 ) || {
-    log "빌드 실패 — 폐기, 현재 버전 유지"; rm -rf "$dest"; exit 0; }
+  if [ -f "$dest/dist/main.js" ]; then
+    # 릴리스에 빌드된 dist 가 들어 있다(make-release.sh) — 실행 의존성만 받는다
+    log "의존성 설치 중…"
+    ( cd "$dest" && npm ci --omit=dev >/dev/null 2>&1 ) || {
+      log "의존성 설치 실패 — 폐기, 현재 버전 유지"; rm -rf "$dest"; exit 0; }
+  else
+    # 예전 릴리스(소스만): 빌드에 devDependencies 가 필요하다
+    log "빌드 중…"
+    ( cd "$dest" && npm ci >/dev/null 2>&1 && npm run build >/dev/null 2>&1 && npm prune --omit=dev >/dev/null 2>&1 ) || {
+      log "빌드 실패 — 폐기, 현재 버전 유지"; rm -rf "$dest"; exit 0; }
+  fi
 
   # ── 7. 원자적 교체 → 헬스체크 → 실패 시 롤백 ──────────────────
   prev=""
