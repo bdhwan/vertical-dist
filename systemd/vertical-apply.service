@@ -1,0 +1,14 @@
+[Unit]
+Description=Vertical OTA 설치(apply) — 받아 둔 릴리스로 교체·재시작·헬스체크·실패 시 롤백
+# 뷰어 [설치] → 서버 POST /update/install → sudo -n systemctl start --no-block vertical-apply.service.
+# 서버의 자식 프로세스로 돌리지 않는 이유: apply 가 pm2 로 그 서버를 재시작하는데, pm2 는 프로세스 트리째
+# 죽인다(treekill). systemd 유닛이면 서버 재시작과 무관하게 끝까지(헬스체크·롤백) 돈다.
+After=network.target
+
+[Service]
+Type=oneshot
+User=bdhwan
+ExecStart=/opt/vertical/bin/update.sh apply
+StandardOutput=append:/opt/vertical/update.log
+StandardError=append:/opt/vertical/update.log
+TimeoutStartSec=300
