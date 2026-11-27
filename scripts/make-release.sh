@@ -17,6 +17,7 @@
 #                                         (옛 뷰어·송출 앱·Pi update.sh 는 모르고 지나감 — Pi 는 server 만 읽는다).
 #                                         APK 마다 "abis"(aapt native-code) — 새 뷰어가 Build.SUPPORTED_ABIS 로 고른다.
 #   vertical-publisher-<versionName>.apk  송출 앱 com.vertical.publisher
+#   (versionName = 릴리스 번호에서 v 를 뺀 것 — 세 APK 모두 같다. 예 v1.3.6 → 1.3.6. versionCode = git 커밋 수)
 # manifest 서명은 없다(사용자 결정). sha256·size 는 깨짐·덜 받음 검사용. APK 는 안드로이드 서명 검사(debug 키)로 보호.
 #
 # APK 는 assembleDebug 로 만든다 — 현장 기기에 깔린 것과 같은 변형·같은 키(~/.android/debug.keystore).
@@ -87,6 +88,9 @@ EXPECT_VC="${OTA_VC:-$GIT_COUNT}"
 # 커밋 수는 여기서 직접 넘긴다 — build.gradle 의 git 호출은 오래 떠 있는 Gradle 데몬이 다른 환경(샌드박스 등)에서
 # 시작됐으면 저장소를 못 보고 1 을 낸다(실제로 dry-run 에서 versionCode 1 이 나왔다).
 GRADLE_VC_ARGS=("-PgitCommitCount=$GIT_COUNT")
+# versionName = 릴리스 번호(v 를 뺀 것) — 뷰어(64·32비트)·송출 앱이 같은 이름(사용자 결정 11-27). 개발 빌드는 "dev-<versionCode>"
+RELEASE_NAME="${VER#v}"
+GRADLE_VC_ARGS+=("-PreleaseVersion=$RELEASE_NAME")
 [ -n "$OTA_VC" ] && GRADLE_VC_ARGS+=("-PotaVersionCode=$OTA_VC")
 
 if [ "$DRY" = 1 ]; then
@@ -141,6 +145,7 @@ add_apk() {
   [ -n "$vc" ] && [ -n "$vn" ] && [ -n "$minsdk" ] || { echo "  ✗ $apk: aapt 값 추출 실패"; exit 1; }
   # 같은 커밋이면 같은 번호여야 한다 — 1 같은 값이 나오면 build.gradle 의 git 호출이 실패한 것(현장 기기가 업데이트를 거부한다)
   [ "$vc" = "$EXPECT_VC" ] || { echo "  ✗ $pkg: versionCode $vc ≠ 기대값 $EXPECT_VC (git rev-list --count HEAD = $GIT_COUNT)"; exit 1; }
+  [ "$vn" = "$RELEASE_NAME" ] || { echo "  ✗ $pkg: versionName $vn ≠ 릴리스 번호 $RELEASE_NAME (build.gradle 의 -PreleaseVersion)"; exit 1; }
   cert=$("$APKSIGNER" verify --print-certs "$apk" 2>/dev/null \
          | sed -nE 's/.*certificate SHA-256 digest: ([0-9a-f]+).*/\1/p' | sort -u)
   [ "$cert" = "$APK_CERT_SHA256" ] || { echo "  ✗ $pkg: 서명 인증서가 현장 debug 키와 다르다 ($cert)"; exit 1; }
